@@ -1,0 +1,9 @@
+DerivedData/
+*.xcuserdata/
+xcuserdata/
+**/xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+.DS_Store
+SPEC-SWIFT.md
+spec-swift.md
