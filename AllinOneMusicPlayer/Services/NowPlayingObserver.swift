@@ -85,13 +85,18 @@ final class NowPlayingObserver {
     }
 
     private func listenerConfig(for platform: PlatformID) -> ListenerConfig {
-        ListenerConfig(platform: platform.rawValue, selectors: NowPlayingSelectors.catalog[platform] ?? .empty)
+        ListenerConfig(
+            platform: platform.rawValue,
+            selectors: NowPlayingSelectors.catalog[platform] ?? .empty,
+            prefersDOMMetadata: platform == .youtube
+        )
     }
 }
 
 private struct ListenerConfig: Encodable {
     let platform: String
     let selectors: NowPlayingSelectors
+    let prefersDOMMetadata: Bool
 }
 
 private struct NowPlayingSelectors: Encodable {
@@ -106,11 +111,16 @@ private struct NowPlayingSelectors: Encodable {
     static let catalog: [PlatformID: NowPlayingSelectors] = [
         .youtube: NowPlayingSelectors(
             title: [
+                "ytmusic-player-bar .content-info-wrapper yt-formatted-string.title",
+                "ytmusic-player-bar yt-formatted-string.title",
                 "ytmusic-player-bar .title",
                 ".ytmusic-player-bar .title.style-scope",
                 "#layout ytmusic-player-bar .title",
             ],
             artist: [
+                "ytmusic-player-bar .content-info-wrapper .byline",
+                "ytmusic-player-bar .subtitle yt-formatted-string",
+                "ytmusic-player-bar .byline-wrapper",
                 "ytmusic-player-bar .byline",
                 ".ytmusic-player-bar .byline.style-scope",
                 "#layout ytmusic-player-bar .byline",
@@ -121,8 +131,11 @@ private struct NowPlayingSelectors: Encodable {
                 "ytmusic-player-bar .thumbnail img",
             ],
             isPlaying: [
+                "ytmusic-player-bar[player-ui-state_=\"PLAYER_BAR_PLAYING\"]",
                 "ytmusic-player-bar[player-ui-state_=\"PLAYING\"]",
+                "ytmusic-player-bar[play-button-state=\"pause\"]",
                 "#play-pause-button[aria-label=\"Pause\"]",
+                "#play-pause-button[title=\"Pause\"]",
             ]
         ),
         .spotify: NowPlayingSelectors(
