@@ -44,6 +44,17 @@ final class PlaybackController {
         ],
     ]
 
+    private let pauseSelectors: [PlatformID: [String]] = [
+        .youtube: ["#play-pause-button"],
+        .spotify: ["[data-testid=\"control-button-playpause\"]"],
+        .netease: [
+            "#g_player .btns a.pas",
+            ".m-player .btns a.pas",
+            "a[data-action=\"pause\"]",
+            "a.pas",
+        ],
+    ]
+
     init(webViewManager: WebViewManager) {
         self.webViewManager = webViewManager
     }
@@ -60,6 +71,22 @@ final class PlaybackController {
         webView.evaluateJavaScript(script) { _, error in
             if let error {
                 StartupLogger.log("PlaybackController \(platform.rawValue) \(action.title) error: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func pause(_ platform: PlatformID) {
+        guard
+            let selectors = pauseSelectors[platform],
+            let webView = webViewManager.playbackWebView(for: platform),
+            let script = Self.pauseScript(selectors: selectors)
+        else {
+            return
+        }
+
+        webView.evaluateJavaScript(script) { _, error in
+            if let error {
+                StartupLogger.log("PlaybackController \(platform.rawValue) pause error: \(error.localizedDescription)")
             }
         }
     }
@@ -99,6 +126,71 @@ final class PlaybackController {
           }
 
           return { clicked: false, selectors };
+        })();
+        """
+    }
+
+    private static func pauseScript(selectors: [String]) -> String? {
+        guard let encodedSelectors = selectors.jsonEncoded else {
+            StartupLogger.log("PlaybackController failed to encode pause selectors: \(selectors)")
+            return nil
+        }
+
+        return """
+        (() => {
+          const selectors = \(encodedSelectors);
+          const pausePattern = /pause|暂停|一時停止|pausa|pausar/i;
+
+          const mediaIsPlaying = (doc) => Array.from(doc.querySelectorAll('video, audio')).some((element) => {
+            try {
+              return !element.paused && !element.ended && element.readyState > 1;
+            } catch (_) {
+              return false;
+            }
+          });
+
+          const pauseElement = (doc) => {
+            for (const selector of selectors) {
+              for (const element of Array.from(doc.querySelectorAll(selector))) {
+                const label = [
+                  element.getAttribute('aria-label'),
+                  element.getAttribute('title'),
+                  element.getAttribute('data-title-no-tooltip'),
+                  element.textContent
+                ].filter(Boolean).join(' ');
+
+                if (mediaIsPlaying(doc) || pausePattern.test(label) || selector.includes('.pas') || selector.includes('pause')) {
+                  return { element, selector };
+                }
+              }
+            }
+            return null;
+          };
+
+          const clickPause = (doc) => {
+            const match = pauseElement(doc);
+            if (!match) return null;
+
+            setTimeout(() => {
+              match.element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+              match.element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+              match.element.click();
+            }, 0);
+            return match.selector;
+          };
+
+          const mainSelector = clickPause(document);
+          if (mainSelector) return { paused: true, selector: mainSelector, frame: false };
+
+          for (const frame of Array.from(document.querySelectorAll('iframe'))) {
+            try {
+              if (!frame.contentDocument) continue;
+              const frameSelector = clickPause(frame.contentDocument);
+              if (frameSelector) return { paused: true, selector: frameSelector, frame: true };
+            } catch (_) {}
+          }
+
+          return { paused: false, selectors };
         })();
         """
     }

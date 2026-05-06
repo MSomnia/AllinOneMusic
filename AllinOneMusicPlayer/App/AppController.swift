@@ -11,6 +11,7 @@ final class AppController {
     private lazy var remoteCommandController = RemoteCommandController()
     private lazy var keyboardShortcutController = KeyboardShortcutController()
     private var mainWindowController: MainWindowController?
+    private var playingPlatform: PlatformID?
 
     func start() {
         StartupLogger.log("AppController.start")
@@ -72,7 +73,7 @@ final class AppController {
         }
 
         WebScriptBridge.shared.onNowPlaying = { [weak self] nowPlaying in
-            self?.appState.updateNowPlaying(nowPlaying)
+            self?.handleNowPlaying(nowPlaying)
         }
         nowPlayingObserver.start()
 
@@ -88,5 +89,27 @@ final class AppController {
 
     private func sendMediaAction(_ action: MediaAction) {
         playbackController.send(action, to: appState.mediaControlPlatform)
+    }
+
+    private func handleNowPlaying(_ nowPlaying: NowPlayingInfo) {
+        let previousPlayingPlatform = playingPlatform
+
+        if nowPlaying.isPlaying {
+            playingPlatform = nowPlaying.platform
+        } else if playingPlatform == nowPlaying.platform {
+            playingPlatform = nil
+        }
+
+        appState.updateNowPlaying(nowPlaying)
+
+        guard
+            nowPlaying.isPlaying,
+            let platformToPause = previousPlayingPlatform,
+            platformToPause != nowPlaying.platform
+        else {
+            return
+        }
+
+        playbackController.pause(platformToPause)
     }
 }
