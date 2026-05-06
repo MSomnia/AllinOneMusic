@@ -3,17 +3,10 @@ import AppKit
 @MainActor
 final class KeyboardShortcutController {
     var onMediaAction: ((MediaAction) -> Void)?
-    var onPlatformShortcut: ((PlatformID) -> Void)?
 
-    private var keyDownMonitor: Any?
     private var mediaKeyMonitor: Any?
 
     init() {
-        keyDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return event }
-            return self.handleKeyDown(event)
-        }
-
         mediaKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .systemDefined) { [weak self] event in
             guard let self else { return event }
             return self.handleSystemDefined(event)
@@ -21,35 +14,8 @@ final class KeyboardShortcutController {
     }
 
     deinit {
-        if let keyDownMonitor {
-            NSEvent.removeMonitor(keyDownMonitor)
-        }
         if let mediaKeyMonitor {
             NSEvent.removeMonitor(mediaKeyMonitor)
-        }
-    }
-
-    private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard modifiers.isEmpty, let key = event.charactersIgnoringModifiers else {
-            return event
-        }
-
-        switch key {
-        case "1":
-            onPlatformShortcut?(.youtube)
-            return nil
-        case "2":
-            onPlatformShortcut?(.spotify)
-            return nil
-        case "3":
-            onPlatformShortcut?(.netease)
-            return nil
-        case " ":
-            onMediaAction?(.playPause)
-            return nil
-        default:
-            return event
         }
     }
 

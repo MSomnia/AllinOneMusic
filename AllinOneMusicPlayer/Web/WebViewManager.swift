@@ -7,6 +7,7 @@ final class WebViewManager {
 
     private let factory: WebViewFactory
     private var playbackWebViews: [PlatformID: WKWebView] = [:]
+    private var searchWebViews: [PlatformID: WKWebView] = [:]
     private var activePlatform: PlatformID = .youtube
 
     init(factory: WebViewFactory) {
@@ -29,6 +30,8 @@ final class WebViewManager {
                 webView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
             ])
         }
+
+        installSearchViews(in: containerView)
     }
 
     func switchToPlatform(_ platform: PlatformID) {
@@ -42,6 +45,19 @@ final class WebViewManager {
         playbackWebViews[platform]
     }
 
+    func searchWebView(for platform: PlatformID) -> WKWebView? {
+        searchWebViews[platform] ?? makeSearchWebView(for: PlatformCatalog.config(for: platform))
+    }
+
+    func navigatePlaybackWebView(to url: URL, platform: PlatformID) {
+        let webView = playbackWebView(for: platform) ?? makePlaybackWebView(for: PlatformCatalog.config(for: platform))
+        switchToPlatform(platform)
+
+        DispatchQueue.main.async {
+            webView.load(URLRequest(url: url))
+        }
+    }
+
     func allPlaybackWebViews() -> [(PlatformID, WKWebView)] {
         playbackWebViews.map { ($0.key, $0.value) }
     }
@@ -51,6 +67,31 @@ final class WebViewManager {
         webView.load(URLRequest(url: platform.playbackURL))
         playbackWebViews[platform.id] = webView
         onPlaybackWebViewCreated?(platform.id, webView)
+        return webView
+    }
+
+    private func installSearchViews(in containerView: NSView) {
+        for platform in PlatformCatalog.all {
+            let webView = searchWebView(for: platform.id) ?? makeSearchWebView(for: platform)
+            guard webView.superview == nil else { continue }
+
+            webView.translatesAutoresizingMaskIntoConstraints = false
+            webView.isHidden = true
+            containerView.addSubview(webView, positioned: .below, relativeTo: nil)
+
+            NSLayoutConstraint.activate([
+                webView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+                webView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+                webView.topAnchor.constraint(equalTo: containerView.topAnchor),
+                webView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+            ])
+        }
+    }
+
+    private func makeSearchWebView(for platform: PlatformConfig) -> WKWebView {
+        let webView = factory.makeWebView(platform: platform, role: .search)
+        webView.isHidden = true
+        searchWebViews[platform.id] = webView
         return webView
     }
 }

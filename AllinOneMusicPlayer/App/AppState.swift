@@ -4,6 +4,7 @@ import Foundation
 final class AppState {
     typealias ActivePlatformHandler = (PlatformID) -> Void
     typealias NowPlayingHandler = (NowPlayingInfo?) -> Void
+    typealias SearchHandler = () -> Void
 
     var activePlatform: PlatformID {
         didSet {
@@ -21,11 +22,39 @@ final class AppState {
         displayedNowPlaying?.platform ?? activePlatform
     }
 
+    var searchQuery: String = "" {
+        didSet {
+            guard oldValue != searchQuery else { return }
+            notifySearchChanged()
+        }
+    }
+
+    var searchResults: [SearchResultOrError] = [] {
+        didSet {
+            notifySearchChanged()
+        }
+    }
+
+    var isSearching: Bool = false {
+        didSet {
+            guard oldValue != isSearching else { return }
+            notifySearchChanged()
+        }
+    }
+
+    var isSearchOpen: Bool = false {
+        didSet {
+            guard oldValue != isSearchOpen else { return }
+            notifySearchChanged()
+        }
+    }
+
     private let defaultsStore: UserDefaultsStore
     private var nowPlayingByPlatform: [PlatformID: NowPlayingInfo] = [:]
     private var displayedNowPlaying: NowPlayingInfo?
     private var activePlatformHandlers: [ActivePlatformHandler] = []
     private var nowPlayingHandlers: [NowPlayingHandler] = []
+    private var searchHandlers: [SearchHandler] = []
 
     init(defaultsStore: UserDefaultsStore) {
         self.defaultsStore = defaultsStore
@@ -42,6 +71,11 @@ final class AppState {
         handler(nowPlaying)
     }
 
+    func observeSearch(_ handler: @escaping SearchHandler) {
+        searchHandlers.append(handler)
+        handler()
+    }
+
     func updateNowPlaying(_ nowPlaying: NowPlayingInfo) {
         let previousDisplayedNowPlaying = displayedNowPlaying
         nowPlayingByPlatform[nowPlaying.platform] = nowPlaying
@@ -55,5 +89,19 @@ final class AppState {
         displayedNowPlaying = nowPlaying
         guard previousDisplayedNowPlaying != displayedNowPlaying else { return }
         nowPlayingHandlers.forEach { $0(displayedNowPlaying) }
+    }
+
+    func openSearch() {
+        isSearchOpen = true
+    }
+
+    func closeSearch() {
+        isSearchOpen = false
+        isSearching = false
+        searchResults = []
+    }
+
+    private func notifySearchChanged() {
+        searchHandlers.forEach { $0() }
     }
 }

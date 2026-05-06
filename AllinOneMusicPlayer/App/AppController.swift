@@ -48,9 +48,6 @@ final class AppController {
         mainWindowController?.onMediaAction = { [weak self] action in
             self?.sendMediaAction(action)
         }
-        mainWindowController?.onPlatformShortcut = { [weak self] platform in
-            self?.appState.activePlatform = platform
-        }
 
         statusBarController.onOpenApp = { [weak self] in
             self?.showMainWindow()
@@ -67,9 +64,6 @@ final class AppController {
         }
         keyboardShortcutController.onMediaAction = { [weak self] action in
             self?.sendMediaAction(action)
-        }
-        keyboardShortcutController.onPlatformShortcut = { [weak self] platform in
-            self?.appState.activePlatform = platform
         }
 
         WebScriptBridge.shared.onNowPlaying = { [weak self] nowPlaying in
